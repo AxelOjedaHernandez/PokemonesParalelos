@@ -1,0 +1,69 @@
+import requests
+import random
+import threading
+
+# Crear un objeto Lock
+print_lock = threading.Lock()
+
+def get_pokemon_data(pokemon_id):
+    url = f"https://pokeapi.co/api/v2/pokemon/{pokemon_id}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        print(f"Error HTTP al obtener el Pokémon con ID {pokemon_id}: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        print(f"Error de conexión al obtener el Pokémon con ID {pokemon_id}: {req_err}")
+    return None
+
+def procesar_datos(pokemon_data):
+    if not pokemon_data:
+        return None
+
+    name = pokemon_data['name'].capitalize()
+    main_type = pokemon_data['types'][0]['type']['name'].capitalize()
+    stats = {stat['stat']['name']: stat['base_stat'] for stat in pokemon_data['stats']}
+    
+    return {
+        "Nombre": name,
+        "Tipo": main_type,
+        "Estadisticas": {
+            "HP": stats.get("hp", 0),
+            "Ataque": stats.get("attack", 0),
+            "Defensa": stats.get("defense", 0),
+            "Ataque especial": stats.get("special-attack", 0),
+            "Defensa especial": stats.get("special-defense", 0),
+            "Velocidad": stats.get("speed", 0)
+        }
+    }
+
+def formato_datos(pokemon_id):
+    pokemon_data = get_pokemon_data(pokemon_id)
+    datos = procesar_datos(pokemon_data)
+    
+    if datos:
+        # Usar el bloqueo para asegurar que solo un hilo imprime a la vez
+        with print_lock:
+            print(f"Nombre: [{datos['Nombre']}]")
+            print(f"Tipo: [{datos['Tipo']}]")
+            print("Estadísticas:")
+            print(f"\tHP: [{datos['Estadisticas']['HP']}]")
+            print(f"\tAtaque: [{datos['Estadisticas']['Ataque']}]")
+            print(f"\tDefensa: [{datos['Estadisticas']['Defensa']}]")
+            print(f"\tAtaque especial: [{datos['Estadisticas']['Ataque especial']}]")
+            print(f"\tDefensa especial: [{datos['Estadisticas']['Defensa especial']}]")
+            print(f"\tVelocidad: [{datos['Estadisticas']['Velocidad']}]\n")
+
+if __name__ == "__main__":
+    pokemon_ids = random.sample(range(1, 1001), 50)
+    threads = []
+
+    for pokemon_id in pokemon_ids:
+        thread = threading.Thread(target=formato_datos, args=(pokemon_id,))
+        threads.append(thread)
+        thread.start()
+
+    # Esperar a que todos los hilos terminen
+    for thread in threads:
+        thread.join()
